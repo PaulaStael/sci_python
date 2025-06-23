@@ -11,6 +11,9 @@ BAUD_RATE = 115200
 # Comandos (do enum SCI_Command_e)
 CMD_RECEIVE_INT = 1 # Comando para o PC enviar um int para o 28379D
 CMD_SEND_INT    = 2 # Comando para o PC pedir um int para o 28379D
+CMD_RECEIVE_VECTOR = 3
+CMD_SEND_VECTOR = 4
+
 
 
 def main():
@@ -27,6 +30,8 @@ def main():
                 print("\n----- MENU -----")
                 print("1. Enviar um numero inteiro para o 28379D")
                 print("2. Receber um numero inteiro do 28379D")
+                print("3. Enviar um vetor de inteiros para o 28379D")
+                print("4. Receber um vetor do 28379D")
                 print("0. Sair")
                 
                 choice = input("Escolha uma opcao: ")
@@ -35,6 +40,10 @@ def main():
                     send_int(ser)
                 elif choice == '2':
                     receive_int(ser)
+                elif choice == '3':
+                    send_vector(ser)
+                elif choice == '4':
+                    receive_vector(ser)
                 elif choice == '0':
                     print("Encerrando o programa.")
                     break
@@ -101,6 +110,86 @@ def receive_int(ser_connection):
 
     except Exception as e:
         print(f"Ocorreu um erro inesperado: {e}")
+
+
+#envio de vetor
+
+def send_vector(ser_connection):
+    """
+    Envia um vetor de int16_t para o microcontrolador.
+    """
+    try:
+        entrada = input("Digite os inteiros separados por espaço (ex: 10 -20 300 0): ")
+        elementos = entrada.strip().split()
+        vetor = [int(x) for x in elementos]
+
+        if not vetor:
+            print("Vetor vazio. Nada a enviar.")
+            return
+
+        for val in vetor:
+            if not -32768 <= val <= 32767:
+                print(f"ERRO: Valor {val} fora do intervalo permitido (int16_t).")
+                return
+
+        # Tamanho em bytes do vetor (cada int16 = 2 bytes)
+        tamanho_bytes = len(vetor) * 2
+
+        # Cabeçalho: comando (1 byte) + tamanho (2 bytes)
+        packet = struct.pack('<Bh', CMD_RECEIVE_VECTOR, tamanho_bytes)
+        # Dados do vetor
+        for val in vetor:
+            packet += struct.pack('<h', val)
+
+        print(f"\nEnviando pacote de {len(packet)} bytes: {packet.hex(' ')}")
+        ser_connection.write(packet)
+        print("Vetor enviado com sucesso.")
+
+    except ValueError:
+        print("ERRO: Entrada invalida. Certifique-se de digitar apenas inteiros.")
+    except Exception as e:
+        print(f"Erro inesperado: {e}")
+
+def receive_vector(ser_connection):
+    """
+    Solicita ao microcontrolador o envio de um vetor de int16_t e o imprime.
+    """
+    try:
+        qtd = input("Quantos inteiros deseja receber do F28379D? ")
+        qtd = int(qtd)
+
+        if qtd <= 0 or qtd > 100:
+            print("ERRO: Número inválido de elementos (limite: 1 a 100).")
+            return
+
+        # 1. Monta o pacote de requisição: comando + payload com quantidade desejada
+        # Comando = CMD_SEND_VECTOR, Dado = qtd (int16_t)
+        request_packet = struct.pack('<Bhh', CMD_SEND_VECTOR, 2, qtd)
+
+        print(f"\nEnviando comando de requisicao de vetor ({qtd} inteiros)...")
+        ser_connection.write(request_packet)
+
+        # 2. Espera os dados: cada int16 = 2 bytes
+        expected_bytes = qtd * 2
+        print(f"Aguardando {expected_bytes} bytes...")
+
+        response = ser_connection.read(expected_bytes)
+
+        if len(response) < expected_bytes:
+            print("ERRO: Resposta incompleta recebida.")
+            print(f"Recebido: {response.hex(' ')}")
+            return
+
+        # 3. Converte os dados recebidos para vetor de int16
+        vetor = list(struct.unpack('<' + 'h' * qtd, response))
+
+        print(f"\n✅ Vetor recebido com {qtd} elementos:")
+        print(vetor)
+
+    except ValueError:
+        print("ERRO: Entrada inválida.")
+    except Exception as e:
+        print(f"Erro inesperado: {e}")
 
 if __name__ == "__main__":
     main()

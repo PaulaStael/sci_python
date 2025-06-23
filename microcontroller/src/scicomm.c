@@ -24,3 +24,24 @@ void protocolSendInt(unsigned int sci_base,int data)
 
     SCI_writeCharArray(sci_base, txBuf, INT_SIZE);
 }
+
+
+void protocolReceiveVector(uint32_t base, int16_t *dest, uint16_t qtd)
+{
+    uint16_t i;
+    for (i = 0; i < qtd; i++)
+    {
+        uint16_t lsb = SCI_readCharBlockingFIFO(base);
+        uint16_t msb = SCI_readCharBlockingFIFO(base);
+        dest[i] = (int16_t)((msb << 8) | lsb);
+    }
+}
+
+void protocolSendVector(uint32_t base, int16_t *data, uint16_t qtd)
+{
+    for (uint16_t i = 0; i < qtd; i++)
+    {
+        SCI_writeCharBlockingFIFO(base, data[i] & 0xFF);       // LSB
+        SCI_writeCharBlockingFIFO(base, (data[i] >> 8) & 0xFF); // MSB
+    }
+}

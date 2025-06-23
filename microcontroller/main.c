@@ -9,6 +9,11 @@
 volatile Protocol_Header_t g_prot_header = {CMD_NONE,0};
 volatile int g_dado;
 
+
+#define VETOR_TAM_MAX 4
+int16_t g_vetor[VETOR_TAM_MAX];
+
+
 //
 // Função Principal
 //
@@ -37,6 +42,27 @@ void main(void)
                 case CMD_SEND_INT:
                     protocolSendInt(SCI0_BASE, g_dado);
                     break;
+
+                case CMD_RECEIVE_VECTOR:
+                {
+                    uint16_t num_elem = g_prot_header.data_len / 2;
+                    if (num_elem > VETOR_TAM_MAX)
+                        num_elem = VETOR_TAM_MAX;
+
+                    protocolReceiveVector(SCI0_BASE, g_vetor, num_elem);
+                    break;
+                }
+                case CMD_SEND_VECTOR:
+                {
+                    uint16_t qtd;
+                    qtd = protocolReceiveInt(SCI0_BASE); // Recebe a quantidade desejada
+
+                    if (qtd > VETOR_TAM_MAX)
+                        qtd = VETOR_TAM_MAX;
+
+                    protocolSendVector(SCI0_BASE, g_vetor, qtd); // Envia vetor
+                    break;
+                }
             }
 
             // Limpa status de interrupção e reseta comando
